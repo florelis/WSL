@@ -14,6 +14,11 @@ parameters:
   type: string
   default: ''
 
+- name: publishToDcatInManual
+  displayName: 'Publish to DCAT for this manual run'
+  type: boolean
+  default: false
+
 trigger:
   tags:
     include: ['*.*.*']
@@ -89,20 +94,21 @@ extends:
         bypassTests: ${{ parameters.bypassTests }}
 
     - ${{ if eq(parameters.testVersion, '') }}:
-        - template: dcat-publish-stages.yml@self
-          parameters:
-            releaseEnvironment: Production
-            initialDependsOn:
-              - dcat_prepare
-              - package
-              - ${{ if eq(parameters.bypassTests, false) }}:
-                  - test
-            dcat:
-              environment: PROD
-              serviceConnection: wsl-dcat-publish-prod
-              clientId: 9752ce08-bcf4-432b-ab86-d60856f646c0
-              tenantId: 33e01921-4d64-4f8c-a055-5bdaffd5e33d
-              publisher: WSL
+        - ${{ if or(ne(variables['Build.Reason'], 'Manual'), eq(parameters.publishToDcatInManual, true)) }}:
+            - template: dcat-publish-stages.yml@self
+              parameters:
+                releaseEnvironment: Production
+                initialDependsOn:
+                  - dcat_prepare
+                  - package
+                  - ${{ if eq(parameters.bypassTests, false) }}:
+                      - test
+                dcat:
+                  environment: PROD
+                  serviceConnection: wsl-dcat-publish-prod
+                  clientId: 9752ce08-bcf4-432b-ab86-d60856f646c0
+                  tenantId: 33e01921-4d64-4f8c-a055-5bdaffd5e33d
+                  publisher: WSL
 
         - template: store-flight-stage.yml@self
           parameters:
