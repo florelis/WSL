@@ -598,6 +598,7 @@ add_subdirectory(src/windows/wslg)
 add_subdirectory(src/windows/wslhost)
 add_subdirectory(src/windows/wslrelay)
 add_subdirectory(src/windows/wslinstall)
+add_subdirectory(src/windows/composeparser)
 add_subdirectory(src/windows/wslc)
 add_subdirectory(src/windows/WslcSDK)
 
