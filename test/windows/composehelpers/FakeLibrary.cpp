@@ -30,6 +30,20 @@ extern "C" uint32_t ComposeNormalize(uint8_t* input, size_t length, uint8_t** ou
     {
         response = "{";
     }
+    else if (mode == "identity")
+    {
+        Result result;
+        result.AcceptedProject.emplace();
+        result.AcceptedProject->Name = "changed";
+        result.AcceptedProject->Directory = request.at("project_directory").get<std::string>();
+        result.AcceptedProject->DefaultNetworkName = "changed_default";
+        Service service;
+        service.Image = "alpine";
+        service.Enabled = true;
+        result.AcceptedProject->Services.emplace("app", std::move(service));
+        response = EncodeResult(result).dump();
+        status = COMPOSE_SUCCESS;
+    }
     else if (mode == "mismatch")
     {
         status = COMPOSE_SUCCESS;

@@ -1,6 +1,6 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 #include "precomp.h"
-#include "Protocol.h"
+#include "private/Protocol.hpp"
 #include <cctype>
 #include <functional>
 #include <regex>
@@ -137,7 +137,7 @@ Json EncodeRequest(const Request& request)
         sources.push_back({{"id", source.Id}, {"filename", source.Filename}, {"content", source.Content}});
     }
     return Json{
-        {"version", request.Version},
+        {"version", 1},
         {"sources", sources},
         {"project_name", request.ProjectName},
         {"project_directory", request.ProjectDirectory},
@@ -150,9 +150,9 @@ std::optional<Diagnostic> ValidateRequest(const Request& request)
     const auto invalid = [](std::string message) {
         return std::optional<Diagnostic>{{"invalid_request", "error", std::move(message), {}, {}}};
     };
-    if (request.Version != 1 || request.Sources.empty())
+    if (request.Sources.empty())
     {
-        return invalid("Version 1 and at least one source are required");
+        return invalid("At least one source is required");
     }
     if (!std::regex_match(request.ProjectName, std::regex{"[a-z0-9][a-z0-9_-]*"}))
     {

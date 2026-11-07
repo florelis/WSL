@@ -1,6 +1,7 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 #include "precomp.h"
-#include "Protocol.h"
+#include "private/Protocol.hpp"
+#include "private/Library.hpp"
 #include "compose-go.h"
 
 namespace wsl::windows::compose {
@@ -16,7 +17,7 @@ namespace {
 
 } // namespace
 
-Result Normalize(const Request& request, const ParserOptions& options)
+Result detail::NormalizeWithLibrary(const Request& request, const LibraryOptions& options)
 {
     try
     {
@@ -24,14 +25,22 @@ Result Normalize(const Request& request, const ParserOptions& options)
         {
             return {{*diagnostic}, std::nullopt};
         }
-        auto input = EncodeRequest(request).dump();
+        std::string input;
+        try
+        {
+            input = EncodeRequest(request).dump();
+        }
+        catch (const nlohmann::json::exception& error)
+        {
+            return Failure("invalid_request", error.what());
+        }
         if (input.size() > c_maxRequestBytes)
         {
             return Failure("limit_exceeded", "Request exceeds 4 MiB");
         }
         if (!options.LibraryPath.is_absolute() || options.LibraryPath.native().find(L'\0') != std::wstring::npos)
         {
-            return Failure("library_error", "Supply a trusted absolute DLL path");
+            return Failure("backend_error", "Supply a trusted absolute DLL path");
         }
         wil::unique_hmodule module{
             LoadLibraryExW(options.LibraryPath.c_str(), nullptr, LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_SYSTEM32)};
@@ -51,7 +60,7 @@ Result Normalize(const Request& request, const ParserOptions& options)
         const auto freeResponse = Resolve<decltype(&ComposeFree)>(module.get(), "ComposeFree");
         if (version() != COMPOSE_ABI_VERSION)
         {
-            return Failure("library_error", "Unsupported parser ABI version");
+            return Failure("backend_error", "Unsupported parser ABI version");
         }
 
         uint8_t* output{};
@@ -64,29 +73,50 @@ Result Normalize(const Request& request, const ParserOptions& options)
         }
         if (output == nullptr || length == 0 || length > c_maxResponseBytes)
         {
-            return Failure("library_error", "Invalid parser response buffer or length");
+            return Failure("backend_error", "Invalid parser response buffer or length");
         }
         auto result = DecodeResult(ParseJson({reinterpret_cast<const char*>(output), length}));
         if (status != COMPOSE_SUCCESS && status != COMPOSE_REJECTED && status != COMPOSE_INTERNAL_ERROR)
         {
-            return Failure("library_error", "Unexpected parser status");
+            return Failure("backend_error", "Unexpected parser status");
         }
         if ((status == COMPOSE_SUCCESS) != result.AcceptedProject.has_value())
         {
-            return Failure("library_error", "Parser status disagrees with response");
+            return Failure("backend_error", "Parser status disagrees with response");
         }
         const auto internal = std::any_of(result.Diagnostics.begin(), result.Diagnostics.end(), [](const auto& diagnostic) {
             return diagnostic.Code == "internal_error" && diagnostic.Severity == "error";
         });
         if ((status == COMPOSE_INTERNAL_ERROR) != internal)
         {
-            return Failure("library_error", "Parser internal-error status disagrees with diagnostics");
+            return Failure("backend_error", "Parser internal-error status disagrees with diagnostics");
+        }
+        const auto path = [](const std::string& value) {
+            return std::filesystem::path{std::u8string{value.begin(), value.end()}}.lexically_normal();
+        };
+        if (result.AcceptedProject && (result.AcceptedProject->Name != request.ProjectName ||
+                                       path(result.AcceptedProject->Directory) != path(request.ProjectDirectory)))
+        {
+            return Failure("backend_error", "Parser changed explicit project identity");
         }
         return result;
     }
     catch (const std::exception& error)
     {
-        return Failure("library_error", error.what());
+        return Failure("backend_error", error.what());
+    }
+}
+
+Result Normalize(const Request& request)
+{
+    try
+    {
+        const std::filesystem::path module{wil::GetModuleFileNameW<std::wstring>(wil::GetModuleInstanceHandle())};
+        return detail::NormalizeWithLibrary(request, {module.parent_path() / L"compose-go.dll"});
+    }
+    catch (const std::exception& error)
+    {
+        return Failure("backend_error", error.what());
     }
 }
 
