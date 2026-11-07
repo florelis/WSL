@@ -61,17 +61,23 @@ int wmain()
         {
             encoded["version"] = 2;
         }
-        if (mode == "invalid_success")
+        if (mode == "invalid_success" || mode == "identity")
         {
             Project project;
             project.Name = mode;
             project.Directory = request.ProjectDirectory;
             project.DefaultNetworkName = mode + "_default";
             Service service;
-            service.Image = "";
+            service.Image = mode == "identity" ? "alpine" : "";
+            service.Enabled = true;
             project.Services["app"] = service;
             result.AcceptedProject = std::move(project);
             result.Diagnostics.clear();
+            if (mode == "identity")
+            {
+                result.AcceptedProject->Name = "changed";
+                result.AcceptedProject->DefaultNetworkName = "changed_default";
+            }
             encoded = EncodeResult(result);
         }
         if (mode == "stderr_exact" || mode == "stderr_over")
@@ -84,7 +90,7 @@ int wmain()
             std::cout << std::string(c_maxResponseBytes - prefix - text.size() + (mode == "stdout_over" ? 1 : 0), ' ');
         }
         std::cout << text << std::flush;
-        if (mode == "exit_mismatch" || mode == "invalid_success")
+        if (mode == "exit_mismatch" || mode == "invalid_success" || mode == "identity")
         {
             return 0;
         }

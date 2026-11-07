@@ -2,6 +2,8 @@
 #
 # Shared fixtures and helpers live in ../common/.
 
+add_subdirectory(../composehelpers ${CMAKE_CURRENT_BINARY_DIR}/composehelpers)
+
 file(GLOB_RECURSE WSLC_TEST_SOURCES CONFIGURE_DEPENDS
     ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp
 )

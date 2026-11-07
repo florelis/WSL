@@ -1,6 +1,7 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 #include "precomp.h"
-#include "Protocol.h"
+#include "private/Protocol.hpp"
+#include "private/Worker.hpp"
 #include <array>
 #include <objbase.h>
 #include <stdexcept>
@@ -150,7 +151,7 @@ namespace {
         }
     };
 
-    Result Run(const std::string& input, const Request& request, const ParserOptions& options)
+    Result Run(const std::string& input, const Request& request, const detail::WorkerOptions& options)
     {
         const auto deadline = std::chrono::steady_clock::now() + options.Timeout;
         Pipe in{true};
@@ -256,7 +257,7 @@ namespace {
         auto result = DecodeResult(ParseJson(out.Output));
         if ((result.AcceptedProject && exitCode != 0) || (!result.AcceptedProject && exitCode != 2))
         {
-            throw TransportFailure{"transport_error", "Worker exit code disagrees with its response"};
+            throw TransportFailure{"backend_error", "Worker exit code disagrees with its response"};
         }
         const auto path = [](const std::string& value) {
             return std::filesystem::path{std::u8string{value.begin(), value.end()}}.lexically_normal();
@@ -264,14 +265,14 @@ namespace {
         if (result.AcceptedProject && (result.AcceptedProject->Name != request.ProjectName ||
                                        path(result.AcceptedProject->Directory) != path(request.ProjectDirectory)))
         {
-            throw TransportFailure{"transport_error", "Worker changed explicit project identity"};
+            throw TransportFailure{"backend_error", "Worker changed explicit project identity"};
         }
         return result;
     }
 
 } // namespace
 
-Result Normalize(const Request& request, const ParserOptions& options)
+Result detail::NormalizeWithWorker(const Request& request, const WorkerOptions& options)
 {
     if (const auto error = ValidateRequest(request))
     {
@@ -290,7 +291,8 @@ Result Normalize(const Request& request, const ParserOptions& options)
     {
         return Failure("limit_exceeded", "Request exceeds 4 MiB");
     }
-    if (!options.WorkerPath.is_absolute() || options.WorkerPath.native().find(L'"') != std::wstring::npos || options.Timeout.count() <= 0)
+    if (!options.WorkerPath.is_absolute() || options.WorkerPath.native().find(L'"') != std::wstring::npos ||
+        options.WorkerPath.native().find(L'\0') != std::wstring::npos || options.Timeout.count() <= 0)
     {
         return Failure("invalid_request", "A trusted absolute worker path and positive timeout are required");
     }
@@ -304,7 +306,20 @@ Result Normalize(const Request& request, const ParserOptions& options)
     }
     catch (const std::exception& error)
     {
-        return Failure("transport_error", error.what());
+        return Failure("backend_error", error.what());
+    }
+}
+
+Result Normalize(const Request& request)
+{
+    try
+    {
+        const std::filesystem::path module{wil::GetModuleFileNameW<std::wstring>(wil::GetModuleInstanceHandle())};
+        return detail::NormalizeWithWorker(request, {module.parent_path() / L"compose-worker.exe"});
+    }
+    catch (const std::exception& error)
+    {
+        return Failure("backend_error", error.what());
     }
 }
 

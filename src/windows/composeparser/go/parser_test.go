@@ -43,7 +43,7 @@ func TestEnvelope(t *testing.T) {
 }
 
 func TestGolden(t *testing.T) {
-	data, err := os.ReadFile(`..\..\..\..\tools\compose-parser-poc\tests\fixtures\basic.json`)
+	data, err := os.ReadFile(`testdata/basic.json`)
 	if err != nil {
 		t.Fatal(err)
 	}
