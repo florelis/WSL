@@ -1,6 +1,6 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 #include "precomp.h"
-#include "Protocol.h"
+#include "private/Protocol.hpp"
 #include <yaml-cpp/yaml.h>
 #include <algorithm>
 #include <charconv>
@@ -302,7 +302,12 @@ namespace {
                 const auto begin = i;
                 if (i == text.size() || !VariableStart(text[i]))
                 {
-                    Invalid(path, "Invalid interpolation");
+                    if (braced)
+                    {
+                        Invalid(path, "Invalid interpolation");
+                    }
+                    result.push_back('$');
+                    continue;
                 }
                 while (i < text.size() && VariableChar(text[i]))
                 {
@@ -953,7 +958,7 @@ namespace {
 
 } // namespace
 
-Result Normalize(const Request& request, const ParserOptions&)
+Result Normalize(const Request& request)
 {
     if (const auto error = ValidateRequest(request))
     {

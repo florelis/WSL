@@ -1,7 +1,10 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
-add_library(compose_parser INTERFACE)
-target_compile_features(compose_parser INTERFACE cxx_std_20)
-target_sources(compose_parser INTERFACE
+add_library(compose_parser STATIC ComposeParser.cpp Protocol.cpp)
+target_compile_features(compose_parser PUBLIC cxx_std_20)
+target_link_libraries(compose_parser PRIVATE nlohmann_json::nlohmann_json yaml-cpp::yaml-cpp)
+target_precompile_headers(compose_parser PRIVATE precomp.h)
+target_compile_options(compose_parser PRIVATE /utf-8)
+target_sources(compose_parser PUBLIC
     FILE_SET HEADERS
     BASE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}"
     FILES ComposeModel.hpp ComposeParser.hpp)

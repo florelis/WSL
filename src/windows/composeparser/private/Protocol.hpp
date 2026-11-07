@@ -1,7 +1,8 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 #pragma once
 
-#include "ComposeParser.h"
+#include "../ComposeParser.hpp"
+#include "ParserLimits.hpp"
 #include <nlohmann/json.hpp>
 
 namespace wsl::windows::compose {
