@@ -67,6 +67,7 @@ set(SOURCES
     WslTelemetry.cpp
     wslutil.cpp
     install.cpp
+    InstallGuard.cpp
     wslc/settings/WSLCUserSettings.cpp
     notifications.cpp)
 
@@ -131,6 +132,7 @@ set(HEADERS
     wslc/cli/TableData.h
     wslc/cli/TableRenderer.h
     INetworkingEngine.h
+    InstallGuard.h
     interop.hpp
     HandleIO.h
     LxssMessagePort.h
